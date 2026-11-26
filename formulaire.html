@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Association — Gestion des documents</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--rouge:#dc2626;--orange:#f59e0b;--vert:#16a34a;--bleu:#2563eb;--gris:#f1f5f9;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:system-ui,Arial,sans-serif;background:var(--gris);color:#0f172a;min-height:100vh;}
+  header{background:#1e293b;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  header h1{font-size:1.15rem;}
+  .langues select{padding:6px 10px;border-radius:6px;border:none;font-size:.95rem;}
+  main{max-width:900px;margin:24px auto;padding:0 16px;}
+  .carte{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:24px;margin-bottom:20px;}
+  .carte h2{font-size:1.1rem;margin-bottom:14px;}
+  label{display:block;font-size:.9rem;font-weight:600;margin:10px 0 4px;}
+  input,select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:1rem;}
+  input:focus,select:focus{outline:2px solid var(--bleu);}
+  .btn{display:inline-block;background:var(--bleu);color:#fff;border:none;border-radius:8px;padding:11px 20px;font-size:1rem;cursor:pointer;margin-top:14px;}
+  .btn:hover{background:#1d4ed8;}
+  .btn-secondaire{background:#64748b;}
+  .btn-danger{background:var(--rouge);}
+  .ligne{display:flex;gap:12px;flex-wrap:wrap;}
+  .ligne>div{flex:1;min-width:160px;}
+  .consent{display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:.88rem;}
+  .consent input{width:auto;margin-top:3px;}
+  .badge{display:inline-block;padding:4px 12px;border-radius:999px;color:#fff;font-size:.85rem;font-weight:600;}
+  .badge-rouge{background:var(--rouge);}
+  .badge-orange{background:var(--orange);}
+  .badge-vert{background:var(--vert);}
+  table{width:100%;border-collapse:collapse;margin-top:10px;}
+  th,td{padding:9px 8px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:.92rem;}
+  th{background:#f8fafc;}
+  .message{padding:11px;border-radius:8px;margin-top:12px;font-size:.92rem;display:none;}
+  .ok{background:#dcfce7;color:#14532d;display:block;}
+  .err{background:#fee2e2;color:#7f1d1d;display:block;}
+  .cache{display:none;}
+  .entete-profil{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+  .note{font-size:.82rem;color:#475569;margin-top:6px;}
+  @media(max-width:600px){.ligne{flex-direction:column;}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="titre-site">Association des étudiants africains de kaliningrad</h1>
+  <div class="langues">
+    <select id="select-langue" onchange="changerLangue(this.value)">
+      <option value="fr">Français</option>
+      <option value="en">English</option>
+      <option value="ru">Русский</option>
+      <option value="pt">Português</option>
+    </select>
+  </div>
+</header>
+
+<main>
+
+  <!-- ===== PAGE CONNEXION / INSCRIPTION ===== -->
+  <section id="page-auth">
+    <div class="carte">
+      <h2 id="t-connexion">Connexion</h2>
+      <form id="form-connexion">
+        <label id="l-email">Adresse e-mail</label>
+        <input type="email" id="c-email" required>
+        <label id="l-mdp">Mot de passe</label>
+        <input type="password" id="c-mdp" required minlength="6">
+        <button type="submit" class="btn" id="btn-connexion">Se connecter</button>
+      </form>
+      <p style="margin-top:14px;font-size:.9rem;">
+        <span id="t-pas-de-compte">Pas encore de compte ?</span>
+        <a href="#" onclick="basculerAuth(true);return false;" id="lien-inscription">S'inscrire</a>
+      </p>
+    </div>
+
+    <div class="carte cache" id="carte-inscription">
+      <h2 id="t-inscription">Inscription volontaire</h2>
+      <form id="form-inscription">
+        <div class="ligne">
+          <div><label id="l-prenom">Prénom</label><input type="text" id="i-prenom" required></div>
+          <div><label id="l-nom">Nom</label><input type="text" id="i-nom" required></div>
+        </div>
+        <div class="ligne">
+          <div><label id="l-dortoir">Numéro de dortoir</label><input type="text" id="i-dortoir" required></div>
+          <div><label id="l-langue-membre">Langue des rappels</label>
+            <select id="i-langue">
+              <option value="fr">Français</option>
+              <option value="en">English</option>
+              <option value="ru">Русский</option>
+              <option value="pt">Português</option>
+            </select>
+          </div>
+        </div>
+        <label id="l-email2">Adresse e-mail</label>
+        <input type="email" id="i-email" required>
+        <label id="l-mdp2">Mot de passe (6 caractères minimum)</label>
+        <input type="password" id="i-mdp" required minlength="6">
+        <div class="consent">
+          <input type="checkbox" id="i-consent" required>
+          <label for="i-consent" id="l-consent" style="font-weight:400;">
+            J'accepte que mes données (nom, e-mail, numéros de documents et dates d'expiration) soient enregistrées
+            uniquement pour la gestion des rappels de l'association. Je peux demander leur suppression à tout moment.
+          </label>
+        </div>
+        <button type="submit" class="btn" id="btn-inscription">Créer mon compte</button>
+      </form>
+      <p style="margin-top:14px;font-size:.9rem;">
+        <span id="t-deja-compte">Vous avez déjà un compte ?</span>
+        <a href="#" onclick="basculerAuth(false);return false;" id="lien-connexion">Se connecter</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== PAGE MEMBRE ===== -->
+  <section id="page-membre" class="cache">
+    <div class="carte">
+      <div class="entete-profil">
+        <h2 id="t-bienvenue">Mes documents</h2>
+        <button class="btn btn-danger" onclick="deconnexion()" id="btn-deco">Se déconnecter</button>
+      </div>
+      <p class="note" id="info-profil"></p>
+
+      <h2 style="margin-top:20px;" id="t-ajout">Ajouter un document</h2>
+      <form id="form-document">
+        <div class="ligne">
+          <div>
+            <label id="l-type">Type de document</label>
+            <select id="d-type" required>
+              <option value="passeport" id="o-passeport">Passeport</option>
+              <option value="visa" id="o-visa">Visa</option>
+              <option value="certificat_medical" id="o-medical">Certificat médical</option>
+              <option value="assurance" id="o-assurance">Assurance</option>
+              <option value="carte_etudiant" id="o-carte">Carte d'étudiant</option>
+              <option value="registre_migration" id="o-migration">Enregistrement de migration</option>
+            </select>
+          </div>
+          <div>
+            <label id="l-numero">Numéro du document</label>
+            <input type="text" id="d-numero" required>
+          </div>
+        </div>
+        <div class="ligne">
+          <div>
+            <label id="l-debut">Date de début</label>
+            <input type="date" id="d-debut" required>
+          </div>
+          <div>
+            <label id="l-expiration">Date d'expiration</label>
+            <input type="date" id="d-expiration" required>
+          </div>
+        </div>
+        <button type="submit" class="btn" id="btn-ajout-doc">Ajouter</button>
+      </form>
+
+      <div class="message" id="msg"></div>
+
+      <h2 style="margin-top:24px;" id="t-mes-docs">Mes documents</h2>
+      <table>
+        <thead>
+          <tr>
+            <th id="th-type">Type</th>
+            <th id="th-numero">Numéro</th>
+            <th id="th-debut">Début</th>
+            <th id="th-expiration">Expiration</th>
+            <th id="th-statut">Statut</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="liste-docs"></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ================================================================
+   CONFIGURATION — déjà remplie avec vos identifiants Supabase
+   ================================================================ */
+const SUPABASE_URL = 'https://nhaybpsvxmojpnvjwhgc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_jWKWdkZpcd98KGgSQ95Oqw_bcpTwiJa';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ================= TRADUCTIONS (4 langues) ================= */
+const T = {
+  fr:{
+    titre:"Association des étudiants — Documents",
+    connexion:"Connexion", inscription:"Inscription volontaire",
+    email:"Adresse e-mail", mdp:"Mot de passe",
+    btnConnexion:"Se connecter", btnInscription:"Créer mon compte",
+    pasDeCompte:"Pas encore de compte ?", dejaCompte:"Vous avez déjà un compte ?",
+    lienInscription:"S'inscrire", lienConnexion:"Se connecter",
+    prenom:"Prénom", nom:"Nom", dortoir:"Numéro de dortoir",
+    langueRappels:"Langue des rappels",
+    consent:"J'accepte que mes données (nom, e-mail, numéros de documents et dates d'expiration) soient enregistrées uniquement pour la gestion des rappels de l'association. Je peux demander leur suppression à tout moment.",
+    bienvenue:"Mes documents", deconnexion:"Se déconnecter",
+    ajout:"Ajouter un document", type:"Type de document", numero:"Numéro du document",
+    debut:"Date de début", expiration:"Date d'expiration", btnAjout:"Ajouter",
+    mesDocs:"Mes documents", thType:"Type", thNumero:"Numéro", thDebut:"Début",
+    thExpiration:"Expiration", thStatut:"Statut", supprimer:"Supprimer",
+    okInscription:"Compte créé ! Vérifiez votre boîte mail puis connectez-vous.",
+    okConnexion:"Connexion réussie !", okDoc:"Document ajouté.",
+    err:"Erreur : ",
+    types:{passeport:"Passeport", visa:"Visa", certificat_medical:"Certificat médical",
+           assurance:"Assurance", carte_etudiant:"Carte d'étudiant",
+           registre_migration:"Enregistrement de migration"},
+    expiré:"EXPIRÉ", j15:"Expire dans 15 jours ou moins", j30:"Expire dans moins de 30 jours",
+    ok:"Valide"
+  },
+  en:{
+    titre:"Students' Association — Documents",
+    connexion:"Login", inscription:"Voluntary registration",
+    email:"Email address", mdp:"Password",
+    btnConnexion:"Log in", btnInscription:"Create my account",
+    pasDeCompte:"No account yet ?", dejaCompte:"Already have an account ?",
+    lienInscription:"Sign up", lienConnexion:"Log in",
+    prenom:"First name", nom:"Last name", dortoir:"Dorm number",
+    langueRappels:"Reminder language",
+    consent:"I agree that my data (name, email, document numbers and expiry dates) is stored only for the association's reminder management. I can request its deletion at any time.",
+    bienvenue:"My documents", deconnexion:"Log out",
+    ajout:"Add a document", type:"Document type", numero:"Document number",
+    debut:"Start date", expiration:"Expiry date", btnAjout:"Add",
+    mesDocs:"My documents", thType:"Type", thNumero:"Number", thDebut:"Start",
+    thExpiration:"Expiry", thStatut:"Status", supprimer:"Delete",
+    okInscription:"Account created! Check your inbox then log in.",
+    okConnexion:"Logged in!", okDoc:"Document added.",
+    err:"Error: ",
+    types:{passeport:"Passport", visa:"Visa", certificat_medical:"Medical certificate",
+           assurance:"Insurance", carte_etudiant:"Student card",
+           registre_migration:"Migration registration"},
+    expiré:"EXPIRED", j15:"Expires in 15 days or less", j30:"Expires in less than 30 days",
+    ok:"Valid"
+  },
+  ru:{
+    titre:"Ассоциация студентов — Документы",
+    connexion:"Вход", inscription:"Добровольная регистрация",
+    email:"Электронная почта", mdp:"Пароль",
+    btnConnexion:"Войти", btnInscription:"Создать аккаунт",
+    pasDeCompte:"Ещё нет аккаунта ?", dejaCompte:"Уже есть аккаунт ?",
+    lienInscription:"Зарегистрироваться", lienConnexion:"Войти",
+    prenom:"Имя", nom:"Фамилия", dortoir:"Номер общежития",
+    langueRappels:"Язык напоминаний",
+    consent:"Я согласен, что мои данные (имя, e-mail, номера документов и сроки действия) хранятся только для напоминаний ассоциации. Я могу потребовать их удаления в любой момент.",
+    bienvenue:"Мои документы", deconnexion:"Выйти",
+    ajout:"Добавить документ", type:"Тип документа", numero:"Номер документа",
+    debut:"Дата начала", expiration:"Дата окончания", btnAjout:"Добавить",
+    mesDocs:"Мои документы", thType:"Тип", thNumero:"Номер", thDebut:"Начало",
+    thExpiration:"Окончание", thStatut:"Статус", supprimer:"Удалить",
+    okInscription:"Аккаунт создан! Проверьте почту и войдите.",
+    okConnexion:"Вход выполнен!", okDoc:"Документ добавлен.",
+    err:"Ошибка: ",
+    types:{passeport:"Паспорт", visa:"Виза", certificat_medical:"Медицинская справка",
+           assurance:"Страховка", carte_etudiant:"Студенческий билет",
+           registre_migration:"Миграционный учёт"},
+    expiré:"ИСТЁК", j15:"Истекает через 15 дней или меньше", j30:"Истекает менее чем через 30 дней",
+    ok:"Действителен"
+  },
+  pt:{
+    titulo:"Associação de estudantes — Documentos",
+    connexion:"Entrar", inscription:"Registo voluntário",
+    email:"Endereço de e-mail", mdp:"Palavra-passe",
+    btnConnexion:"Entrar", btnInscription:"Criar a minha conta",
+    pasDeCompte:"Ainda não tem conta ?", dejaCompte:"Já tem conta ?",
+    lienInscription:"Registar", lienConnexion:"Entrar",
+    prenom:"Nome próprio", nom:"Sobrenome", dortoir:"Número da residência",
+    langueRappels:"Idioma dos lembretes",
+    consent:"Aceito que os meus dados (nome, e-mail, números de documentos e datas de validade) sejam guardados apenas para os lembretes da associação. Posso pedir a eliminação a qualquer momento.",
+    bienvenue:"Os meus documentos", deconnexion:"Sair",
+    ajout:"Adicionar um documento", type:"Tipo de documento", numero:"Número do documento",
+    debut:"Data de início", expiration:"Data de validade", btnAjout:"Adicionar",
+    mesDocs:"Os meus documentos", thType:"Tipo", thNumero:"Número", thDebut:"Início",
+    thExpiration:"Validade", thStatut:"Estado", supprimer:"Eliminar",
+    okInscription:"Conta criada! Verifique o seu e-mail e entre.",
+    okConnexion:"Sessão iniciada!", okDoc:"Documento adicionado.",
+    err:"Erro: ",
+    types:{passeport:"Passaporte", visa:"Visto", certificat_medical:"Certificado médico",
+           assurance:"Seguro", carte_etudiant:"Cartão de estudante",
+           registre_migration:"Registo migratório"},
+    expiré:"EXPIRADO", j15:"Expira em 15 dias ou menos", j30:"Expira em menos de 30 dias",
+    ok:"Válido"
+  }
+};
+
+let langue = localStorage.getItem('langue') || 'fr';
+
+/* ============ INTERFACE : TRADUCTION ============ */
+function t(key){ return (T[langue] && T[langue][key]) || T.fr[key] || key; }
+
+function appliquerLangue(){
+  const L = T[langue];
+  document.getElementById('titre-site').textContent = L.titre;
+  document.getElementById('t-connexion').textContent = L.connexion;
+  document.getElementById('t-inscription').textContent = L.inscription;
+  document.getElementById('l-email').textContent = L.email;
+  document.getElementById('l-email2').textContent = L.email;
+  document.getElementById('l-mdp').textContent = L.mdp;
+  document.getElementById('l-mdp2').textContent = L.mdp + ' (6+)';
+  document.getElementById('btn-connexion').textContent = L.btnConnexion;
+  document.getElementById('btn-inscription').textContent = L.btnInscription;
+  document.getElementById('t-pas-de-compte').textContent = L.pasDeCompte;
+  document.getElementById('t-deja-compte').textContent = L.dejaCompte;
+  document.getElementById('lien-inscription').textContent = L.lienInscription;
+  document.getElementById('lien-connexion').textContent = L.lienConnexion;
+  document.getElementById('l-prenom').textContent = L.prenom;
+  document.getElementById('l-nom').textContent = L.nom;
+  document.getElementById('l-dortoir').textContent = L.dortoir;
+  document.getElementById('l-langue-membre').textContent = L.langueRappels;
+  document.getElementById('l-consent').textContent = L.consent;
+  document.getElementById('t-bienvenue').textContent = L.bienvenue;
+  document.getElementById('btn-deco').textContent = L.deconnexion;
+  document.getElementById('t-ajout').textContent = L.ajout;
+  document.getElementById('l-type').textContent = L.type;
+  document.getElementById('l-numero').textContent = L.numero;
+  document.getElementById('l-debut').textContent = L.debut;
+  document.getElementById('l-expiration').textContent = L.expiration;
+  document.getElementById('btn-ajout-doc').textContent = L.btnAjout;
+  document.getElementById('t-mes-docs').textContent = L.mesDocs;
+  document.getElementById('th-type').textContent = L.thType;
+  document.getElementById('th-numero').textContent = L.thNumero;
+  document.getElementById('th-debut').textContent = L.thDebut;
+  document.getElementById('th-expiration').textContent = L.thExpiration;
+  document.getElementById('th-statut').textContent = L.thStatut;
+  document.getElementById('o-passeport').textContent = L.types.passeport;
+  document.getElementById('o-visa').textContent = L.types.visa;
+  document.getElementById('o-medical').textContent = L.types.certificat_medical;
+  document.getElementById('o-assurance').textContent = L.types.assurance;
+  document.getElementById('o-carte').textContent = L.types.carte_etudiant;
+  document.getElementById('o-migration').textContent = L.types.registre_migration;
+  document.documentElement.lang = langue;
+}
+
+function changerLangue(l){ langue = l; localStorage.setItem('langue', l); appliquerLangue(); }
+
+function afficher(type, texte){
+  const m = document.getElementById('msg');
+  m.textContent = texte;
+  m.className = 'message ' + (type === 'ok' ? 'ok' : 'err');
+}
+
+/* ============ BASCULE CONNEXION / INSCRIPTION ============ */
+function basculerAuth(inscription){
+  document.getElementById('carte-inscription').classList.toggle('cache', !inscription);
+  document.querySelector('#page-auth .carte:first-child').classList.toggle('cache', inscription);
+  document.getElementById('t-connexion').textContent = inscription ? t('inscription') : t('connexion');
+}
+
+/* ============ AUTHENTIFICATION ============ */
+document.getElementById('form-connexion').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('c-email').value;
+  const mdp = document.getElementById('c-mdp').value;
+  const { error } = await supabase.auth.signInWithPassword({ email, password: mdp });
+  if (error) { afficher('err', t('err') + error.message); return; }
+  document.getElementById('form-connexion').reset();
+  ouvrirPageMembre();
+});
+
+document.getElementById('form-inscription').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('i-email').value;
+  const mdp = document.getElementById('i-mdp').value;
+
+  const { data, error } = await supabase.auth.signUp({ email, password: mdp });
+  if (error) { afficher('err', t('err') + error.message); return; }
+
+  if (data.user) {
+    await supabase.from('profiles').upsert({
+      id: data.user.id,
+      email: email,
+      prenom: document.getElementById('i-prenom').value,
+      nom: document.getElementById('i-nom').value,
+      numero_dortoir: document.getElementById('i-dortoir').value,
+      langue: document.getElementById('i-langue').value,
+      consentement: true
+    });
+  }
+  document.getElementById('form-inscription').reset();
+  afficher('ok', t('okInscription'));
+});
+
+async function deconnexion(){
+  await supabase.auth.signOut();
+  document.getElementById('page-membre').classList.add('cache');
+  document.getElementById('page-auth').classList.remove('cache');
+}
+
+/* ============ PAGE MEMBRE ============ */
+let profilCourant = null;
+
+async function ouvrirPageMembre(){
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const { data: profil } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+  if (profil) {
+    profilCourant = profil;
+    langue = profil.langue || langue;
+    document.getElementById('select-langue').value = langue;
+    appliquerLangue();
+    document.getElementById('info-profil').textContent =
+      profil.prenom + ' ' + profil.nom + ' — ' + t('dortoir') + ' : ' + profil.numero_dortoir;
+  }
+  document.getElementById('page-auth').classList.add('cache');
+  document.getElementById('page-membre').classList.remove('cache');
+  await chargerDocuments();
+}
+
+/* ============ DOCUMENTS ============ */
+function joursRestants(dateExp){
+  const auj = new Date(); auj.setHours(0,0,0,0);
+  const exp = new Date(dateExp + 'T00:00:00');
+  return Math.ceil((exp - auj) / 86400000);
+}
+
+function badgeStatut(j){
+  if (j < 0)  return '<span class="badge badge-rouge">' + t('expiré') + '</span>';
+  if (j <= 15) return '<span class="badge badge-rouge">' + j + ' j</span>';
+  if (j <= 30) return '<span class="badge badge-orange">' + j + ' j</span>';
+  return '<span class="badge badge-vert">' + j + ' j</span>';
+}
+
+async function chargerDocuments(){
+  const { data, error } = await supabase
+    .from('documents')
+    .select('*')
+    .order('date_expiration', { ascending: true });
+  if (error) { afficher('err', t('err') + error.message); return; }
+
+  const tbody = document.getElementById('liste-docs');
+  tbody.innerHTML = '';
+  if (!data || data.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6">—</td></tr>';
+    return;
+  }
+  data.forEach(doc => {
+    const j = joursRestants(doc.date_expiration);
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + (t('types')[doc.type] || doc.type) + '</td>' +
+      '<td>' + (doc.numero || '') + '</td>' +
+      '<td>' + doc.date_debut + '</td>' +
+      '<td>' + doc.date_expiration + '</td>' +
+      '<td>' + badgeStatut(j) + '</td>' +
+      '<td><button class="btn btn-danger" style="padding:5px 10px;margin:0;" onclick="supprimerDoc(\'' + doc.id + '\')">' + t('supprimer') + '</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById('form-document').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const { error } = await supabase.from('documents').insert({
+    user_id: user.id,
+    type: document.getElementById('d-type').value,
+    numero: document.getElementById('d-numero').value,
+    date_debut: document.getElementById('d-debut').value,
+    date_expiration: document.getElementById('d-expiration').value
+  });
+  if (error) { afficher('err', t('err') + error.message); return; }
+  document.getElementById('form-document').reset();
+  afficher('ok', t('okDoc'));
+  await chargerDocuments();
+});
+
+async function supprimerDoc(id){
+  const { error } = await supabase.from('documents').delete().eq('id', id);
+  if (error) { afficher('err', t('err') + error.message); return; }
+  await chargerDocuments();
+}
+
+/* ============ DEMARRAGE ============ */
+document.getElementById('select-langue').value = langue;
+appliquerLangue();
+
+(async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) await ouvrirPageMembre();
+})();
+</script>
+</body>
+</html>
