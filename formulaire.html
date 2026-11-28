@@ -176,12 +176,19 @@
 </main>
 
 <script>
-/* ================================================================
-   CONFIGURATION — déjà remplie avec vos identifiants Supabase
-   ================================================================ */
+/* ============ CONFIGURATION (initialisation sécurisée) ============ */
 const SUPABASE_URL = 'https://nhaybpsvxmojpnvjwhgc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_jWKWdkZpcd98KGgSQ95Oqw_bcpTwiJa';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const supabase = (typeof window.supabase !== 'undefined')
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
+
+if (!supabase) {
+  console.warn("Supabase non chargé — les langues fonctionnent, mais pas la base de données.");
+} else {
+  console.log("Supabase chargé avec succès.");
+}
 
 /* ================= TRADUCTIONS (4 langues) ================= */
 const T = {
@@ -258,7 +265,7 @@ const T = {
     ok:"Действителен"
   },
   pt:{
-    titulo:"Associação de estudantes — Documentos",
+    titre:"Associação de estudantes — Documentos",
     connexion:"Entrar", inscription:"Registo voluntário",
     email:"Endereço de e-mail", mdp:"Palavra-passe",
     btnConnexion:"Entrar", btnInscription:"Criar a minha conta",
@@ -349,6 +356,7 @@ function basculerAuth(inscription){
 /* ============ AUTHENTIFICATION ============ */
 document.getElementById('form-connexion').addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (!supabase) { afficher('err', t('err') + 'Supabase non chargé'); return; }
   const email = document.getElementById('c-email').value;
   const mdp = document.getElementById('c-mdp').value;
   const { error } = await supabase.auth.signInWithPassword({ email, password: mdp });
@@ -359,12 +367,11 @@ document.getElementById('form-connexion').addEventListener('submit', async (e) =
 
 document.getElementById('form-inscription').addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (!supabase) { afficher('err', t('err') + 'Supabase non chargé'); return; }
   const email = document.getElementById('i-email').value;
   const mdp = document.getElementById('i-mdp').value;
-
   const { data, error } = await supabase.auth.signUp({ email, password: mdp });
   if (error) { afficher('err', t('err') + error.message); return; }
-
   if (data.user) {
     await supabase.from('profiles').upsert({
       id: data.user.id,
@@ -381,7 +388,7 @@ document.getElementById('form-inscription').addEventListener('submit', async (e)
 });
 
 async function deconnexion(){
-  await supabase.auth.signOut();
+  if (supabase) await supabase.auth.signOut();
   document.getElementById('page-membre').classList.add('cache');
   document.getElementById('page-auth').classList.remove('cache');
 }
@@ -390,6 +397,7 @@ async function deconnexion(){
 let profilCourant = null;
 
 async function ouvrirPageMembre(){
+  if (!supabase) return;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
   const { data: profil } = await supabase.from('profiles').select('*').eq('id', user.id).single();
@@ -421,6 +429,7 @@ function badgeStatut(j){
 }
 
 async function chargerDocuments(){
+  if (!supabase) return;
   const { data, error } = await supabase
     .from('documents')
     .select('*')
@@ -449,6 +458,7 @@ async function chargerDocuments(){
 
 document.getElementById('form-document').addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (!supabase) { afficher('err', t('err') + 'Supabase non chargé'); return; }
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
   const { error } = await supabase.from('documents').insert({
@@ -465,6 +475,7 @@ document.getElementById('form-document').addEventListener('submit', async (e) =>
 });
 
 async function supprimerDoc(id){
+  if (!supabase) return;
   const { error } = await supabase.from('documents').delete().eq('id', id);
   if (error) { afficher('err', t('err') + error.message); return; }
   await chargerDocuments();
@@ -475,6 +486,7 @@ document.getElementById('select-langue').value = langue;
 appliquerLangue();
 
 (async () => {
+  if (!supabase) return;
   const { data: { session } } = await supabase.auth.getSession();
   if (session) await ouvrirPageMembre();
 })();
